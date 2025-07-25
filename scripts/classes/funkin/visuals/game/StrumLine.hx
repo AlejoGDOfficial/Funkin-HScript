@@ -136,9 +136,7 @@ class StrumLine extends ScriptGroup
         var spawn:Float = 1500 / Math.min(speed, 1);
 
         while (unspawnedNotes[0] != null && Conductor.songPosition + spawn > unspawnedNotes[0].time)
-        {
             addNote(unspawnedNotes.shift());
-        }
     }
 
     var hitIndex:Int = 0;
@@ -174,7 +172,7 @@ class StrumLine extends ScriptGroup
 
             if (botplay)
             {
-                if (diff <= 0)
+                if (diff <= 0 && (note.state == NoteState.HELD || note.state == NoteState.NEUTRAL))
                 {
                     note.strum.animation.play('hit', true);
 
@@ -212,6 +210,9 @@ class StrumLine extends ScriptGroup
 
                         continue;
                     }
+                
+                    if (diff < -175 && note.state != NoteState.MISSED)
+                        missNote(note);
                 } else {
                     if (justReleased[note.data] && note.state == NoteState.HELD)
                         releaseNote(note);
@@ -225,9 +226,6 @@ class StrumLine extends ScriptGroup
                         continue;
                     }
                 }
-                
-                if (diff < -175 && note.state != NoteState.MISSED)
-                    missNote(note);
             }
 
             if (note.time + despawn < Conductor.songPosition)
@@ -252,7 +250,8 @@ class StrumLine extends ScriptGroup
         if (hitCallback != null)
             hitCallback(note, rating);
 
-        removeNote(note);
+        if (note.noteType == NoteType.NORMAL)
+            removeNote(note);
     }
 
     function missNote(note:Note)

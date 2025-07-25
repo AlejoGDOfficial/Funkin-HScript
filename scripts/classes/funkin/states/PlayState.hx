@@ -4,9 +4,12 @@ import flixel.input.keyboard.FlxKey;
 import flixel.group.FlxTypedGroup;
 import flixel.FlxObject;
 import flixel.ui.FlxBar;
+import flixel.text.FlxTextFormat;
+import flixel.text.FlxTextFormatMarkerPair;
 
 import core.enums.CharacterType;
 import core.enums.Orientation;
+import core.enums.Rank;
 import core.enums.Rating;
 
 import core.backend.Conductor;
@@ -27,9 +30,26 @@ class PlayState extends MusicBeatState
 
     public var characters:CharacterTypeGroup = new CharacterTypeGroup();
 
+    public var noteCombo:Int = 0;
+
+    public var score(get, never):Int;
+
+    public var misses:Int = 0;
+    
+    public var sicks:Int = 0;
+    public var goods:Int = 0;
+    public var bads:Int = 0;
+    public var shits:Int = 0;
+
+    public var accuracy(get, never):Float;
+
+    public var rank(get, never):Rank;
+
     public var health(default, set):Float = 50;
 
     public var healthBar:Bar;
+
+    public var scoreText:FlxText;
 
     public var opponentIcon:Icon;
 
@@ -51,7 +71,7 @@ class PlayState extends MusicBeatState
 
         SONG = ALEParserHelper.getALESong(Json.parse(File.getContent(Paths.getPath('songs/' + songName + '/charts/' + diff +  '.json'))));
 
-        FlxG.sound.playMusic(Paths.voices('songs/' + songName));
+        FlxG.sound.playMusic(Paths.returnSound('songs/' + songName + '/song/Voices'));
 
         STAGE = ALEParserHelper.getALEStage(SONG.stage);
     }
@@ -113,24 +133,24 @@ class PlayState extends MusicBeatState
             {
                 strl.hitCallback = function (note:Note, rating:Null)
                 {
-                    /*
                     switch (rating)
                     {
                         case Rating.SICK:
-                            trace('Sick!!');
+                            sicks++;
                         case Rating.GOOD:
-                            trace('Good!');
+                            goods++;
                         case Rating.BAD:
-                            trace('Bad');
+                            bads++;
                         case Rating.SHIT:
-                            trace('Shit');
+                            shits++;
                     }
-                            */
-
+                    
                     health += 1.5;
                 };
 
                 strl.missCallback = (note:Note) -> {
+                    misses++;
+
                     health -= 2.5;
                 }
             }
@@ -160,6 +180,16 @@ class PlayState extends MusicBeatState
         healthBar.leftBar.color = CoolUtil.colorFromArray(colors.opponent);
         healthBar.rightBar.color = CoolUtil.colorFromArray(colors.player);
         healthBar.orientation = Orientation.RIGHT;
+
+		scoreText = new FlxText(0, healthBar.y + healthBar.height + 20, FlxG.width, "", 16);
+		scoreText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, 'center');
+		//scoreText.borderStyle = 'outline';
+		scoreText.borderSize = 1;
+		scoreText.borderColor = FlxColor.BLACK;
+		scoreText.borderSize = 1.25;
+		add(scoreText);
+		scoreText.cameras = [camHUD];
+		scoreText.applyMarkup('Score: ' + score + '    Misses: ' + misses + '    Rating: *' + Rank.toString(rank) + '*', [new FlxTextFormatMarkerPair(new FlxTextFormat(Rank.toColor(rank)), '*')]);
 
         var icons:Dynamic = {
             player: characters.players[0] == null ? characters.extras[0].data.icon : characters.players[0].data.icon,
@@ -290,6 +320,42 @@ class PlayState extends MusicBeatState
             playerIcon.updateHitbox();
         }
 
+        if (scoreText != null)
+		    scoreText.applyMarkup('Score: ' + score + '    Misses: ' + misses + '    Rating: *' + Rank.toString(rank) + '*' + (rank == null ? '' : ' - ' + FlxMath.roundDecimal(accuracy, 2) + '%'), [new FlxTextFormatMarkerPair(new FlxTextFormat(Rank.toColor(rank)), '*')]);  
+
         return health;
+    }
+    
+    public function get_score():Int
+    {
+        return sicks * 350 + goods * 200 + bads * 100 + misses * -100;
+    }
+
+    public function get_accuracy():Float
+    {
+        var total:Int = sicks + goods + bads + shits + misses;
+        var maxScore:Int = total * 100;
+        var score:Int = sicks * 100 + goods * 75 + bads * 40 + shits * 20;
+        
+        return total == 0 ? 0 : score / total;
+    }
+
+    public function get_rank():Rank
+    {
+        if (accuracy <= 0)
+            return null;
+
+        if (accuracy < 40)
+            return Rank.LOSS;
+        else if (accuracy < 55)
+            return Rank.GOOD;
+        else if (accuracy < 70)
+            return Rank.GREAT;
+        else if (accuracy < 85)
+            return Rank.EXCELLENT;
+        else if (accuracy < 100)
+            return Rank.SICK;
+        else
+            return Rank.PERFECT;
     }
 }
